@@ -45,7 +45,8 @@ use Glpi\Toolbox\Sanitizer;
  * then a refreh is started.
  *
  * Will save the file name and SHA into DB, in table 'glpi_plugin_ticketcleaner_picturehashes'
- * for each file found in the 'pictures' folder
+ * for each file found in the 'pictures' folder.
+ * It will also insert all the documents marked as is_blacklisted = 1 into the table
  */
 function loadSha1IntoDB() {
    global $DB;
@@ -81,6 +82,21 @@ function loadSha1IntoDB() {
                      "error on 'insert' into glpi_plugin_ticketcleaner_picturehashes with ".$pict." hash: ". $DB->error()
             );
          }
+      }
+
+      // Get all the sha1sum and filename from glpi_documents where is_blacklisted = 1 (without the duplicates by hash)
+      $res = $DB->query("SELECT DISTINCT sha1sum, filename FROM glpi_documents WHERE is_blacklisted = 1");
+
+      // Insert them into the table
+      foreach ($res as $data) {
+         $DB->insertOrDie(
+                  'glpi_plugin_ticketcleaner_picturehashes',
+                  [
+                     'hash' => $data['sha1sum'],
+                     'filename' => $data['filename']
+                  ],
+                  "error on 'insert' into glpi_plugin_ticketcleaner_picturehashes with ".$data['filename']." hash: ". $DB->error()
+         );
       }
 
       if (count($files)) {
